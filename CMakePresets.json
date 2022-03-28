@@ -1,0 +1,68 @@
+{
+    "version": 2,
+    "configurePresets": [
+        {
+            "hidden": true,
+            "name": "base",
+            "binaryDir": "${sourceParentDir}/bplustree-build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "${sourceParentDir}/bplustree-install/${presetName}",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": true
+            }
+        },
+        {
+            "hidden": true,
+            "name": "config-debug",
+            "inherits": [
+                "base"
+            ],
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "hidden": true,
+            "name": "config-release",
+            "inherits": [
+                "base"
+            ],
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "hidden": true,
+            "name": "generator-ninja",
+            "generator": "Ninja"
+        },
+        {
+            "name": "ninja-debug",
+            "displayName": "Ninja Debug Config",
+            "description": "Debug configuration using Ninja generator",
+            "inherits": [
+                "config-debug",
+                "generator-ninja"
+            ]
+        },
+        {
+            "name": "ninja-release",
+            "displayName": "Ninja Release Config",
+            "description": "Release configuration using Ninja generator",
+            "inherits": [
+                "config-release",
+                "generator-ninja"
+            ]
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "ninja-debug",
+            "configurePreset": "ninja-debug"
+        },
+        {
+            "name": "ninja-release",
+            "configurePreset": "ninja-release"
+        }
+    ],
+    "testPresets": []
+}
