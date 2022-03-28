@@ -98,9 +98,8 @@ install(
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 install(
-    DIRECTORY ${PROJECT_SOURCE_DIR}/include ${PROJECT_BINARY_DIR}/include
+    FILES ${PROJECT_SOURCE_DIR}/include/bplustree.hpp
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-    PATTERN "*.in" EXCLUDE
 )
 
 # Install the target file
@@ -112,10 +111,10 @@ install(
 )
 
 # Install the CMake scripts
-install(
-    DIRECTORY ${PROJECT_SOURCE_DIR}/cmake/Modules
-    DESTINATION ${ConfigPackageLocation}
-)
+# install(
+#     DIRECTORY ${PROJECT_SOURCE_DIR}/cmake/Modules
+#     DESTINATION ${ConfigPackageLocation}
+# )
 
 ################################################################################
 ### CPack config files generation
