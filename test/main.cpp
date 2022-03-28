@@ -6,7 +6,7 @@
 int main() {
     using btree = btree<int, std::string, std::hash<std::string>>;
     btree bt;
-    {
+    /*{
         btree::iterator it;
         ++it;
         (void)it++;
@@ -33,5 +33,5 @@ int main() {
         (void)it++;
         --it;
         (void)it--;
-    }
+    }*/
 }
