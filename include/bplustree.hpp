@@ -1,8 +1,13 @@
-#include <iostream>
-#include <map>
-#include <string>
-#include <variant>
+#pragma once
+
+#include <algorithm>
+#include <array>
+#include <functional>
+#include <iterator>
 #include <limits>
+#include <memory>
+#include <type_traits>
+#include <utility>
 
 template <typename Key, typename Value>
 struct btree_default_traits {
@@ -111,21 +116,13 @@ public:
         }
     }
 
-    size_type size() const noexcept {
-        return stats.size;
-    }
+    size_type size() const noexcept { return stats.size; }
 
-    size_type max_size() const noexcept {
-        return std::numeric_limits<size_type>::max();
-    }
+    size_type max_size() const noexcept { return std::numeric_limits<size_type>::max(); }
 
-    bool empty() const noexcept {
-        return size() == 0;
-    }
+    bool empty() const noexcept { return size() == 0; }
 
-    const tree_stats& get_stats() const noexcept {
-        return stats;
-    }
+    const tree_stats& get_stats() const noexcept { return stats; }
 
 private:
     using level_type = size_type;
@@ -315,40 +312,3 @@ private:
         slot_type current_slot{};
     };
 };
-
-#include <vector>
-
-int main() {
-    using btree = btree<int, std::string, std::hash<std::string>>;
-    btree bt;
-    {
-        btree::iterator it;
-        ++it;
-        (void)it++;
-        --it;
-        (void)it--;
-    }
-    {
-        btree::const_iterator it;
-        ++it;
-        (void)it++;
-        --it;
-        (void)it--;
-    }
-    {
-        btree::reverse_iterator it;
-        ++it;
-        (void)it++;
-        --it;
-        (void)it--;
-    }
-    {
-        btree::const_reverse_iterator it;
-        ++it;
-        (void)it++;
-        --it;
-        (void)it--;
-    }
-    std::vector<int> v(2, 3);
-    auto it = v.cbegin();
-}
