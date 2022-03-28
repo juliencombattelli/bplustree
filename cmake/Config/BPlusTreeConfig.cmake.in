@@ -1,0 +1,26 @@
+@PACKAGE_INIT@
+
+# Handle transitive dependencies
+# > No dependency for now
+# include(CMakeFindDependencyMacro)
+# find_dependency(...)
+
+if(NOT TARGET BPlusTree::BPlusTree)
+    include("${CMAKE_CURRENT_LIST_DIR}/BPlusTreeTargets.cmake")
+endif()
+
+# Handle submodules research
+# > No component for now
+# foreach(component ${BPlusTree_FIND_COMPONENTS})
+#     # For requested component, execute its "config" script
+#     include(
+#         ${CMAKE_CURRENT_LIST_DIR}/BPlusTree${component}Targets.cmake
+#         RESULT_VARIABLE BPlusTree_${component}_FOUND
+#   )
+# endforeach()
+
+# Include utility scripts
+# > No utility script for now
+# include("${CMAKE_CURRENT_LIST_DIR}/Modules/script.cmake")
+
+check_required_components(Magma)

@@ -1,0 +1,39 @@
+# Cppcheck was supported in CMake 3.10 but Clang-tidy made it only in 3.12
+cmake_minimum_required(VERSION 3.12)
+
+if(BPLUSTREE_ENABLE_CPPCHECK)
+    find_program(CPPCHECK cppcheck)
+    if(CPPCHECK)
+        set(CMAKE_CXX_CPPCHECK
+            ${CPPCHECK}
+                --suppress=missingInclude
+                --enable=all
+                --inconclusive
+        )
+    else()
+        message(SEND_ERROR "cppcheck requested but executable not found")
+    endif()
+endif()
+
+if(BPLUSTREE_ENABLE_CLANG_TIDY)
+    find_program(CLANGTIDY
+        NAMES
+            clang-tidy clang-tidy-15 clang-tidy-14 clang-tidy-13 clang-tidy-12 clang-tidy-11 clang-tidy-10
+            clang-tidy-9 clang-tidy-8 clang-tidy-7 clang-tidy-6.0 # TODO generate this list
+    )
+    if(CLANGTIDY)
+        set(CMAKE_CXX_CLANG_TIDY ${CLANGTIDY})
+        set(CMAKE_C_CLANG_TIDY ${CLANGTIDY})
+    else()
+        message(SEND_ERROR "clang-tidy requested but executable not found")
+    endif()
+endif()
+
+if(BPLUSTREE_ENABLE_INCLUDE_WHAT_YOU_USE)
+    find_program(INCLUDE_WHAT_YOU_USE include-what-you-use)
+    if(INCLUDE_WHAT_YOU_USE)
+        set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE ${INCLUDE_WHAT_YOU_USE})
+    else()
+        message(SEND_ERROR "include-what-you-use requested but executable not found")
+    endif()
+endif()

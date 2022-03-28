@@ -34,6 +34,4 @@ int main() {
         --it;
         (void)it--;
     }
-    std::vector<int> v(2, 3);
-    auto it = v.cbegin();
 }
