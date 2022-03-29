@@ -9,6 +9,18 @@
 #include <type_traits>
 #include <utility>
 
+#ifndef NDEBUG
+#include <cassert>
+#define BPLUSTREE_ASSERT(x) \
+    do {                    \
+        assert(x);          \
+    } while (0)
+#else
+#define BPLUSTREE_ASSERT(x) \
+    do {                    \
+    } while (0)
+#endif
+
 template <typename Key, typename Value>
 struct btree_default_traits {
     static const int leaf_slots = std::max<int>(8, 256 / (sizeof(Value)));
@@ -218,6 +230,7 @@ private:
     }
 
     void clear_recursive(node* n) {
+        BPLUSTREE_ASSERT(n != nullptr);
         if (n->is_leafnode()) {
             // data objects are deleted by leaf_node's destructor
         } else {
@@ -288,6 +301,7 @@ private:
 
     private:
         void next() noexcept {
+            BPLUSTREE_ASSERT(current_leaf != nullptr);
             if (current_slot + 1u < current_leaf->data_count) {
                 // There is still data in current node, switching to next slot
                 ++current_slot;
@@ -302,6 +316,7 @@ private:
         }
 
         void previous() noexcept {
+            BPLUSTREE_ASSERT(current_leaf != nullptr);
             if (current_slot > 0) {
                 // There is still data in current node, switching to previous slot
                 --current_slot;
