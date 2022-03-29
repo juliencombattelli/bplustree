@@ -116,13 +116,13 @@ public:
         }
     }
 
-    size_type size() const noexcept { return stats.size; }
+    [[nodiscard]] size_type size() const noexcept { return stats.size; }
 
-    size_type max_size() const noexcept { return std::numeric_limits<size_type>::max(); }
+    [[nodiscard]] size_type max_size() const noexcept { return std::numeric_limits<size_type>::max(); }
 
-    bool empty() const noexcept { return size() == 0; }
+    [[nodiscard]] bool empty() const noexcept { return size() == 0; }
 
-    const tree_stats& get_stats() const noexcept { return stats; }
+    [[nodiscard]] const tree_stats& get_stats() const noexcept { return stats; }
 
 private:
     using level_type = size_type;
@@ -194,13 +194,13 @@ private:
         std::allocator_traits<decltype(alloc)>::deallocate(alloc, n, 1);
     }
 
-    leaf_node* allocate_leaf() {
+    [[nodiscard]] leaf_node* allocate_leaf() {
         auto* leaf = allocate_from_allocator<leaf_node>(allocator);
         ++stats.leaves;
         return leaf;
     }
 
-    inner_node* allocate_inner(slot_type level) {
+    [[nodiscard]] inner_node* allocate_inner(slot_type level) {
         auto* inner = allocate_from_allocator<inner_node>(allocator, level);
         ++stats.inner_nodes;
         return inner;
