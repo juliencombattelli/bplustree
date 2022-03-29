@@ -82,12 +82,12 @@ public:
     [[nodiscard]] const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator(end()); }
     [[nodiscard]] const_reverse_iterator crbegin() const noexcept { return const_reverse_iterator(end()); }
 
-    [[nodiscard]] iterator end() noexcept { return iterator(tail_leaf, tail_leaf ? tail_leaf->slot_use : 0); }
+    [[nodiscard]] iterator end() noexcept { return iterator(tail_leaf, tail_leaf ? tail_leaf->data_count : 0); }
     [[nodiscard]] const_iterator end() const noexcept {
-        return const_iterator(tail_leaf, tail_leaf ? tail_leaf->slot_use : 0);
+        return const_iterator(tail_leaf, tail_leaf ? tail_leaf->data_count : 0);
     }
     [[nodiscard]] const_iterator cend() const noexcept {
-        return const_iterator(tail_leaf, tail_leaf ? tail_leaf->slot_use : 0);
+        return const_iterator(tail_leaf, tail_leaf ? tail_leaf->data_count : 0);
     }
     [[nodiscard]] reverse_iterator rend() noexcept { return reverse_iterator(begin()); }
     [[nodiscard]] const_reverse_iterator rend() const noexcept { return const_reverse_iterator(begin()); }
@@ -134,8 +134,7 @@ private:
     static const slot_type inner_slots_min = inner_slots_max / 2;
 
     struct node {
-        slot_type level;
-        slot_type slot_use;
+        slot_type level{};
         [[nodiscard]] bool is_leafnode() const noexcept { return level == 0; }
     };
 
@@ -144,26 +143,28 @@ private:
 
         std::array<key_type, inner_slots_max> keys;
         std::array<node*, inner_slots_max + 1> childs;
+        slot_type child_count{};
 
         [[nodiscard]] const key_type& key(slot_type slot) const noexcept { return keys[slot]; }
-        [[nodiscard]] bool is_full() const noexcept { return node::slot_use == inner_slots_max; }
-        [[nodiscard]] bool is_few() const noexcept { return node::slot_use <= inner_slots_min; }
-        [[nodiscard]] bool is_underflow() const noexcept { return node::slot_use < inner_slots_min; }
+        [[nodiscard]] bool is_full() const noexcept { return node::child_count == inner_slots_max; }
+        [[nodiscard]] bool is_few() const noexcept { return node::child_count <= inner_slots_min; }
+        [[nodiscard]] bool is_underflow() const noexcept { return node::child_count < inner_slots_min; }
     };
 
     struct leaf_node : public node {
         using alloc_type = typename std::allocator_traits<allocator_type>::template rebind_alloc<leaf_node>;
 
-        leaf_node* previous_leaf;
-        leaf_node* next_leaf;
+        leaf_node* previous_leaf{};
+        leaf_node* next_leaf{};
 
-        std::array<value_type, leaf_slots_max> slot_data;
+        std::array<value_type, leaf_slots_max> data;
+        slot_type data_count{};
 
-        [[nodiscard]] const key_type& key(slot_type slot) const { return key_extractor(slot_data[slot]); }
-        [[nodiscard]] bool is_full() const noexcept { return node::slot_use == leaf_slots_max; }
-        [[nodiscard]] bool is_few() const noexcept { return node::slot_use <= leaf_slots_min; }
-        [[nodiscard]] bool is_underflow() const noexcept { return node::slot_use < leaf_slots_min; }
-        void set_slot(slot_type slot, const value_type& value) noexcept { slot_data[slot] = value; }
+        [[nodiscard]] const key_type& key(slot_type slot) const { return key_extractor(data[slot]); }
+        [[nodiscard]] bool is_full() const noexcept { return node::data_count == leaf_slots_max; }
+        [[nodiscard]] bool is_few() const noexcept { return node::data_count <= leaf_slots_min; }
+        [[nodiscard]] bool is_underflow() const noexcept { return node::data_count < leaf_slots_min; }
+        void set_slot(slot_type slot, const value_type& value) noexcept { data[slot] = value; }
     };
 
     struct tree_stats {
@@ -221,7 +222,7 @@ private:
             // data objects are deleted by leaf_node's destructor
         } else {
             inner_node* inner = static_cast<inner_node*>(n);
-            for (slot_type slot = 0; slot < inner->slot_use + 1; ++slot) {
+            for (slot_type slot = 0; slot < inner->child_count + 1; ++slot) {
                 clear_recursive(inner->childs[slot]);
                 deallocate_node(inner->childs[slot]);
             }
@@ -251,8 +252,8 @@ private:
         iterator_base() noexcept = default;
         iterator_base(leaf_node_type* l, slot_type s) noexcept : current_leaf{l}, current_slot{s} {}
 
-        [[nodiscard]] reference operator*() const noexcept { return current_leaf->slot_data[current_slot]; }
-        [[nodiscard]] pointer operator->() const noexcept { return &current_leaf->slot_data[current_slot]; }
+        [[nodiscard]] reference operator*() const noexcept { return current_leaf->data[current_slot]; }
+        [[nodiscard]] pointer operator->() const noexcept { return &current_leaf->data[current_slot]; }
 
         [[nodiscard]] const key_type& key() const noexcept { return current_leaf->key(current_slot); }
 
@@ -287,13 +288,13 @@ private:
 
     private:
         void next() noexcept {
-            if (current_slot + 1u < current_leaf->slot_use) {
+            if (current_slot + 1u < current_leaf->data_count) {
                 ++current_slot;
             } else if (current_leaf->next_leaf != nullptr) {
                 current_leaf = current_leaf->next_leaf;
                 current_slot = 0;
             } else {  // this is end()
-                current_slot = current_leaf->slot_use;
+                current_slot = current_leaf->data_count;
             }
         }
 
@@ -302,7 +303,7 @@ private:
                 --current_slot;
             } else if (current_leaf->previous_leaf != nullptr) {
                 current_leaf = current_leaf->previous_leaf;
-                current_slot = current_leaf->slot_use - 1;
+                current_slot = current_leaf->data_count - 1;
             } else {  // this is begin()
                 current_slot = 0;
             }
