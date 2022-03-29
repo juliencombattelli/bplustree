@@ -289,22 +289,28 @@ private:
     private:
         void next() noexcept {
             if (current_slot + 1u < current_leaf->data_count) {
+                // There is still data in current node, switching to next slot
                 ++current_slot;
             } else if (current_leaf->next_leaf != nullptr) {
+                // No data on current node, switching to the next one
                 current_leaf = current_leaf->next_leaf;
                 current_slot = 0;
-            } else {  // this is end()
+            } else {
+                // No data and no node left, setting current slot to end()
                 current_slot = current_leaf->data_count;
             }
         }
 
         void previous() noexcept {
             if (current_slot > 0) {
+                // There is still data in current node, switching to previous slot
                 --current_slot;
             } else if (current_leaf->previous_leaf != nullptr) {
+                // No data on current node, switching to the previous one
                 current_leaf = current_leaf->previous_leaf;
                 current_slot = current_leaf->data_count - 1;
-            } else {  // this is begin()
+            } else {
+                // No node left, setting current slot to begin()
                 current_slot = 0;
             }
         }
