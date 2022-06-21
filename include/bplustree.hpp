@@ -94,12 +94,12 @@ public:
     [[nodiscard]] const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator(end()); }
     [[nodiscard]] const_reverse_iterator crbegin() const noexcept { return const_reverse_iterator(end()); }
 
-    [[nodiscard]] iterator end() noexcept { return iterator(tail_leaf, tail_leaf ? tail_leaf->data_count : 0); }
+    [[nodiscard]] iterator end() noexcept { return iterator(tail_leaf, tail_leaf ? tail_leaf->slot_count : 0); }
     [[nodiscard]] const_iterator end() const noexcept {
-        return const_iterator(tail_leaf, tail_leaf ? tail_leaf->data_count : 0);
+        return const_iterator(tail_leaf, tail_leaf ? tail_leaf->slot_count : 0);
     }
     [[nodiscard]] const_iterator cend() const noexcept {
-        return const_iterator(tail_leaf, tail_leaf ? tail_leaf->data_count : 0);
+        return const_iterator(tail_leaf, tail_leaf ? tail_leaf->slot_count : 0);
     }
     [[nodiscard]] reverse_iterator rend() noexcept { return reverse_iterator(begin()); }
     [[nodiscard]] const_reverse_iterator rend() const noexcept { return const_reverse_iterator(begin()); }
@@ -147,7 +147,11 @@ private:
 
     struct node {
         slot_type level{};
+        slot_type slot_count{};
         [[nodiscard]] bool is_leafnode() const noexcept { return level == 0; }
+        [[nodiscard]] bool is_full() const noexcept { return slot_count == leaf_slots_max; }
+        [[nodiscard]] bool is_few() const noexcept { return slot_count <= leaf_slots_min; }
+        [[nodiscard]] bool is_underflow() const noexcept { return slot_count < leaf_slots_min; }
     };
 
     struct inner_node : public node {
@@ -155,12 +159,8 @@ private:
 
         std::array<key_type, inner_slots_max> keys;
         std::array<node*, inner_slots_max + 1> childs;
-        slot_type child_count{};
 
         [[nodiscard]] const key_type& key(slot_type slot) const noexcept { return keys[slot]; }
-        [[nodiscard]] bool is_full() const noexcept { return node::child_count == inner_slots_max; }
-        [[nodiscard]] bool is_few() const noexcept { return node::child_count <= inner_slots_min; }
-        [[nodiscard]] bool is_underflow() const noexcept { return node::child_count < inner_slots_min; }
     };
 
     struct leaf_node : public node {
@@ -170,12 +170,8 @@ private:
         leaf_node* next_leaf{};
 
         std::array<value_type, leaf_slots_max> data;
-        slot_type data_count{};
 
         [[nodiscard]] const key_type& key(slot_type slot) const { return key_extractor(data[slot]); }
-        [[nodiscard]] bool is_full() const noexcept { return node::data_count == leaf_slots_max; }
-        [[nodiscard]] bool is_few() const noexcept { return node::data_count <= leaf_slots_min; }
-        [[nodiscard]] bool is_underflow() const noexcept { return node::data_count < leaf_slots_min; }
         void set_slot(slot_type slot, const value_type& value) noexcept { data[slot] = value; }
     };
 
@@ -235,7 +231,7 @@ private:
             // data objects are deleted by leaf_node's destructor
         } else {
             inner_node* inner = static_cast<inner_node*>(n);
-            for (slot_type slot = 0; slot < inner->child_count + 1; ++slot) {
+            for (slot_type slot = 0; slot < inner->slot_count + 1; ++slot) {
                 clear_recursive(inner->childs[slot]);
                 deallocate_node(inner->childs[slot]);
             }
@@ -302,7 +298,7 @@ private:
     private:
         void next() noexcept {
             BPLUSTREE_ASSERT(current_leaf != nullptr);
-            if (current_slot + 1u < current_leaf->data_count) {
+            if (current_slot + 1u < current_leaf->slot_count) {
                 // There is still data in current node, switching to next slot
                 ++current_slot;
             } else if (current_leaf->next_leaf != nullptr) {
@@ -311,7 +307,7 @@ private:
                 current_slot = 0;
             } else {
                 // No data and no node left, setting current slot to end()
-                current_slot = current_leaf->data_count;
+                current_slot = current_leaf->slot_count;
             }
         }
 
@@ -323,7 +319,7 @@ private:
             } else if (current_leaf->previous_leaf != nullptr) {
                 // No data on current node, switching to the previous one
                 current_leaf = current_leaf->previous_leaf;
-                current_slot = current_leaf->data_count - 1;
+                current_slot = current_leaf->slot_count - 1;
             } else {
                 // No node left, setting current slot to begin()
                 current_slot = 0;
