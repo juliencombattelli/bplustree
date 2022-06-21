@@ -1,0 +1,8 @@
+Urgent:
+[x] Rework compare utils
+[ ] Rework lower_bound_impl pattern
+[ ] Remove key extractor from class and move it into a static fn in btree_trait
+
+Others:
+[ ] Implement value compare
+[ ] Isolate allocator utils into its own module (allocator_traits?)
