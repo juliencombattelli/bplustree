@@ -38,6 +38,52 @@ struct btree_key_extractor_pair {
     [[nodiscard]] const Key& operator()(const Value& v) { return v.first; }
 };
 
+namespace details {
+
+static constexpr struct {
+    template <typename Compare, typename T>
+    [[nodiscard]] constexpr bool operator()(Compare&& comp, T&& a, T&& b) const {
+        return comp(std::forward<T>(a), std::forward<T>(b));
+    }
+} less_than;
+
+static constexpr struct {
+    template <typename Compare, typename T>
+    [[nodiscard]] constexpr bool operator()(Compare&& comp, T&& a, T&& b) const {
+        return !comp(std::forward<T>(b), std::forward<T>(a));
+    }
+} less_than_or_equal_to;
+
+static constexpr struct {
+    template <typename Compare, typename T>
+    [[nodiscard]] constexpr bool operator()(Compare&& comp, T&& a, T&& b) const {
+        return comp(std::forward<T>(b), std::forward<T>(a));
+    }
+} greater_than;
+
+static constexpr struct {
+    template <typename Compare, typename T>
+    [[nodiscard]] constexpr bool operator()(Compare&& comp, T&& a, T&& b) const {
+        return !comp(std::forward<T>(a), std::forward<T>(b));
+    }
+} greater_than_or_equal_to;
+
+static constexpr struct {
+    template <typename Compare, typename T>
+    [[nodiscard]] constexpr bool operator()(Compare&& comp, T&& a, T&& b) const {
+        return !comp(std::forward<T>(a), std::forward<T>(b)) && !comp(std::forward<T>(b), std::forward<T>(a));
+    }
+} equal_to;
+
+static constexpr struct {
+    template <typename Compare, typename T>
+    [[nodiscard]] constexpr bool operator()(Compare&& comp, T&& a, T&& b) const {
+        return comp(std::forward<T>(a), std::forward<T>(b)) || comp(std::forward<T>(b), std::forward<T>(a));
+    }
+} not_equal_to;
+
+}  // namespace details
+
 template <typename Key,
           typename Value,
           typename KeyExtractor,
@@ -46,6 +92,7 @@ template <typename Key,
           typename Allocator = std::allocator<Value>>
 class btree {
 private:
+    using btree_type = btree<Key, Value, KeyExtractor, Compare, Traits, Allocator>;
     template <typename V>
     class iterator_base;
 
@@ -94,12 +141,12 @@ public:
     [[nodiscard]] const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator(end()); }
     [[nodiscard]] const_reverse_iterator crbegin() const noexcept { return const_reverse_iterator(end()); }
 
-    [[nodiscard]] iterator end() noexcept { return iterator(tail_leaf, tail_leaf ? tail_leaf->data_count : 0); }
+    [[nodiscard]] iterator end() noexcept { return iterator(tail_leaf, tail_leaf ? tail_leaf->slot_count : 0); }
     [[nodiscard]] const_iterator end() const noexcept {
-        return const_iterator(tail_leaf, tail_leaf ? tail_leaf->data_count : 0);
+        return const_iterator(tail_leaf, tail_leaf ? tail_leaf->slot_count : 0);
     }
     [[nodiscard]] const_iterator cend() const noexcept {
-        return const_iterator(tail_leaf, tail_leaf ? tail_leaf->data_count : 0);
+        return const_iterator(tail_leaf, tail_leaf ? tail_leaf->slot_count : 0);
     }
     [[nodiscard]] reverse_iterator rend() noexcept { return reverse_iterator(begin()); }
     [[nodiscard]] const_reverse_iterator rend() const noexcept { return const_reverse_iterator(begin()); }
@@ -136,6 +183,27 @@ public:
 
     [[nodiscard]] const tree_stats& get_stats() const noexcept { return stats; }
 
+    template <typename Iterator>
+    [[nodiscard]] static Iterator lower_bound_impl(btree_type& self, const key_type& key) {
+        node* n = self.root;
+        if (!n) {
+            return self.end();
+        }
+        while (!n->is_leafnode()) {
+            const auto* inner = static_cast<const inner_node*>(n);
+            slot_type slot = self.find_lower_bound(inner, key);
+            n = inner->childs[slot];
+        }
+        auto* leaf = static_cast<leaf_node*>(n);
+        slot_type slot = self.find_lower_bound(leaf, key);
+        return Iterator(leaf, slot);
+    }
+
+    [[nodiscard]] iterator lower_bound(const key_type& key) { return lower_bound_impl<iterator>(*this, key); }
+    [[nodiscard]] const_iterator lower_bound(const key_type& key) const {
+        return lower_bound_impl<const_iterator>(*this, key);
+    }
+
 private:
     using level_type = size_type;
     using slot_type = size_type;
@@ -147,7 +215,11 @@ private:
 
     struct node {
         slot_type level{};
+        slot_type slot_count{};
         [[nodiscard]] bool is_leafnode() const noexcept { return level == 0; }
+        [[nodiscard]] bool is_full() const noexcept { return slot_count == leaf_slots_max; }
+        [[nodiscard]] bool is_few() const noexcept { return slot_count <= leaf_slots_min; }
+        [[nodiscard]] bool is_underflow() const noexcept { return slot_count < leaf_slots_min; }
     };
 
     struct inner_node : public node {
@@ -155,12 +227,8 @@ private:
 
         std::array<key_type, inner_slots_max> keys;
         std::array<node*, inner_slots_max + 1> childs;
-        slot_type child_count{};
 
         [[nodiscard]] const key_type& key(slot_type slot) const noexcept { return keys[slot]; }
-        [[nodiscard]] bool is_full() const noexcept { return node::child_count == inner_slots_max; }
-        [[nodiscard]] bool is_few() const noexcept { return node::child_count <= inner_slots_min; }
-        [[nodiscard]] bool is_underflow() const noexcept { return node::child_count < inner_slots_min; }
     };
 
     struct leaf_node : public node {
@@ -170,12 +238,8 @@ private:
         leaf_node* next_leaf{};
 
         std::array<value_type, leaf_slots_max> data;
-        slot_type data_count{};
 
         [[nodiscard]] const key_type& key(slot_type slot) const { return key_extractor(data[slot]); }
-        [[nodiscard]] bool is_full() const noexcept { return node::data_count == leaf_slots_max; }
-        [[nodiscard]] bool is_few() const noexcept { return node::data_count <= leaf_slots_min; }
-        [[nodiscard]] bool is_underflow() const noexcept { return node::data_count < leaf_slots_min; }
         void set_slot(slot_type slot, const value_type& value) noexcept { data[slot] = value; }
     };
 
@@ -235,11 +299,38 @@ private:
             // data objects are deleted by leaf_node's destructor
         } else {
             inner_node* inner = static_cast<inner_node*>(n);
-            for (slot_type slot = 0; slot < inner->child_count + 1; ++slot) {
+            for (slot_type slot = 0; slot < inner->slot_count + 1; ++slot) {
                 clear_recursive(inner->childs[slot]);
                 deallocate_node(inner->childs[slot]);
             }
         }
+    }
+
+    template <typename Node, typename Comparator>
+    [[nodiscard]] slot_type find_key(const Node* n, const Comparator& comp, const key_type& key) const noexcept {
+        if (n->slot_count == 0) {
+            return 0;
+        }
+        slot_type lo = 0, hi = n->slot_count;
+        while (lo < hi) {
+            slot_type mid = (lo + hi) / 2;
+            if (comp(key_compare, n->key(mid), key)) {
+                hi = mid;
+            } else {
+                lo = mid + 1;
+            }
+        }
+        return lo;
+    }
+
+    template <typename Node>
+    [[nodiscard]] slot_type find_lower_bound(const Node* n, const key_type& key) const noexcept {
+        return find_key(n, details::greater_than_or_equal_to, key);
+    }
+
+    template <typename Node>
+    [[nodiscard]] slot_type find_upper_bound(const Node* n, const key_type& key) const noexcept {
+        return find_key(n, details::greater_than, key);
     }
 
     node* root{};
@@ -302,7 +393,7 @@ private:
     private:
         void next() noexcept {
             BPLUSTREE_ASSERT(current_leaf != nullptr);
-            if (current_slot + 1u < current_leaf->data_count) {
+            if (current_slot + 1u < current_leaf->slot_count) {
                 // There is still data in current node, switching to next slot
                 ++current_slot;
             } else if (current_leaf->next_leaf != nullptr) {
@@ -311,7 +402,7 @@ private:
                 current_slot = 0;
             } else {
                 // No data and no node left, setting current slot to end()
-                current_slot = current_leaf->data_count;
+                current_slot = current_leaf->slot_count;
             }
         }
 
@@ -323,7 +414,7 @@ private:
             } else if (current_leaf->previous_leaf != nullptr) {
                 // No data on current node, switching to the previous one
                 current_leaf = current_leaf->previous_leaf;
-                current_slot = current_leaf->data_count - 1;
+                current_slot = current_leaf->slot_count - 1;
             } else {
                 // No node left, setting current slot to begin()
                 current_slot = 0;
