@@ -30,7 +30,7 @@ jobs:
             artifact: windows-mingw
             compiler-c: gcc
             compiler-cxx: g++
-            extra_cmake_args: -G Ninja
+            extra_cmake_args: -G "MinGW Makefiles"
           - os: windows-latest
             name: Windows MSVC
             artifact: windows-msvc
