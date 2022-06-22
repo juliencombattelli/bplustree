@@ -23,19 +23,35 @@
 
 template <typename Key, typename Value>
 struct btree_default_traits {
+    /**
+     * Slots count in each leaf node of the tree. Estimated so that each node has a size of about 256 bytes.
+     * Must be correlated with the layout of an leaf node.
+     */
     static const int leaf_slots = std::max<int>(8, 256 / (sizeof(Value)));
-    static const int inner_slots = std::max<int>(8, 256 / (sizeof(Key) + sizeof(void*)));
+    /**
+     * Slots count in each inner node of the tree. Estimated so that each node has a size of about 256 bytes.
+     * Must be correlated with the layout of an inner node.
+     */
+    static const int inner_slots = std::max<int>(8, (240 - sizeof(void*)) / (sizeof(Key) + sizeof(void*)));
     static const bool debug = false;
 };
 
-template <typename Key, typename Value>
-struct btree_key_extractor_single {  // TODO could be lambda
-    [[nodiscard]] const Key& operator()(const Value& v) { return v; }
+/**
+ * Extract the key from `value` as if the value is the key.
+ * @note Useful to build a std::set-like structure on top of `bplustree`.
+ */
+struct btree_key_extractor_self {
+    template<typename T>
+    [[nodiscard]] const auto& operator()(const T& value) { return value; }
 };
 
-template <typename Key, typename Value>
+/**
+ * Extract the key from `value` as if the value is a pair of key/data.
+ * @note Useful to build a std::map-like structure on top of `bplustree`.
+ */
 struct btree_key_extractor_pair {
-    [[nodiscard]] const Key& operator()(const Value& v) { return v.first; }
+    template<typename T>
+    [[nodiscard]] const auto& operator()(const T& value) { return value.first; }
 };
 
 namespace detail {
@@ -46,10 +62,11 @@ namespace detail {
  *
  * @see https://en.cppreference.com/w/cpp/named_req/Compare
  *
- * @note The naming of the generated comparison objects assume that Compare implements a `less than` relationship, which
- * corresponds to the default comparator of the container class. However, this is not strictly required, and giving for
- * example a comparator implementing a `greater than` relation would cause the semantic to be reversed: less_than()
- * would performs `greater than` and greater_than() would performs `less than`. But the logic would remain intact.
+ * @note The naming of the generated comparison objects assume that `Compare` implements a `less than` relationship,
+ * which corresponds to the default comparator of the container class. However, this is not strictly required, and
+ * giving for example a comparator implementing a `greater than` relation would cause the semantic to be reversed:
+ * less_than() would performs `greater than` and greater_than() would performs `less than`. But the logic would remain
+ * intact.
  */
 
 static constexpr struct {
@@ -240,7 +257,7 @@ private:
         std::array<key_type, inner_slots_max> keys;
         std::array<node_type*, inner_slots_max + 1> childs;
 
-        [[nodiscard]] key_type key(slot_type slot) const noexcept { return keys[slot]; }
+        [[nodiscard]] const key_type& key(slot_type slot) const noexcept { return keys[slot]; }
     };
 
     struct leaf_node_type : public node_type {
@@ -251,8 +268,7 @@ private:
 
         std::array<value_type, leaf_slots_max> data;
 
-        [[nodiscard]] key_type key(slot_type slot) const { return key_extractor_type{}(data[slot]); }
-        void set_slot(slot_type slot, const value_type& value) noexcept { data[slot] = value; }
+        [[nodiscard]] const key_type& key(slot_type slot) const { return key_extractor_type{}(data[slot]); }
     };
 
     struct tree_stats {
@@ -362,12 +378,12 @@ private:
     public:
         using key_type = Key;
         using value_type = std::decay_t<V>;
-        using reference = V&;
-        using pointer = V*;
+        using reference = value_type&;
+        using pointer = value_type*;
         using iterator_category = std::bidirectional_iterator_tag;
         using difference_type = ptrdiff_t;
 
-        using leaf_node_type_ = std::conditional_t<std::is_const_v<V>, const leaf_node_type, leaf_node_type>;
+        using leaf_node_type_ = std::conditional_t<std::is_const_v<value_type>, const leaf_node_type, leaf_node_type>;
 
         iterator_base() noexcept = default;
         iterator_base(leaf_node_type_* l, slot_type s) noexcept : current_leaf{l}, current_slot{s} {}
