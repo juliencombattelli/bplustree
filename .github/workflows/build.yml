@@ -25,12 +25,12 @@ jobs:
             artifact: macos-clang
             compiler-c: clang
             compiler-cxx: clang++
-          - os: windows-latest
-            name: Windows MinGW
-            artifact: windows-mingw
-            compiler-c: gcc
-            compiler-cxx: g++
-            extra_cmake_args: -G "MinGW Makefiles"
+          # - os: windows-latest
+          #   name: Windows MinGW
+          #   artifact: windows-mingw
+          #   compiler-c: gcc
+          #   compiler-cxx: g++
+          #   extra_cmake_args: -G "MinGW Makefiles"
           - os: windows-latest
             name: Windows MSVC
             artifact: windows-msvc
