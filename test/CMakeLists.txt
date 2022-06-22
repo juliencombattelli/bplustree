@@ -1,4 +1,5 @@
 add_executable(bplustree-private-unit-tests private-tests.cpp)
+target_compile_definitions(bplustree-private-unit-tests PRIVATE BPLUSTREE_TESTING_PRIVATE)
 target_link_libraries(bplustree-private-unit-tests PUBLIC bplustree gtest_main)
 target_enable_coverage(bplustree-private-unit-tests)
 

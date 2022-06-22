@@ -1,6 +1,4 @@
-#define private public
 #include <bplustree.hpp>
-#undef private
 
 #include <gtest/gtest.h>
 

@@ -21,6 +21,12 @@
     } while (0)
 #endif
 
+#ifdef BPLUSTREE_TESTING_PRIVATE
+#define BPLUSTREE_PRIVATE_TESTABLE public
+#else
+#define BPLUSTREE_PRIVATE_TESTABLE private
+#endif
+
 template <typename Key, typename Value>
 struct btree_default_traits {
     /**
@@ -120,7 +126,7 @@ template <typename Key,
           typename Traits = btree_default_traits<Key, Value>,
           typename Allocator = std::allocator<Value>>
 class btree {
-private:
+BPLUSTREE_PRIVATE_TESTABLE:
     using btree_type = btree<Key, Value, KeyExtractor, Compare, Traits, Allocator>;
     template <typename V>
     class iterator_base;
@@ -233,7 +239,7 @@ public:
         return lower_bound_impl<const_iterator>(*this, key);
     }
 
-private:
+BPLUSTREE_PRIVATE_TESTABLE:
     using level_type = size_type;
     using slot_type = size_type;
 
@@ -422,7 +428,7 @@ private:
             return x.current_leaf != current_leaf || x.current_slot != current_slot;
         }
 
-    private:
+    BPLUSTREE_PRIVATE_TESTABLE:
         void next() noexcept {
             BPLUSTREE_ASSERT(current_leaf != nullptr);
             if (current_slot + 1u < current_leaf->slot_count) {
