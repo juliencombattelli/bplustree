@@ -231,34 +231,9 @@ private:
     static constexpr slot_type leaf_slots_min = leaf_slots_max / 2;
     static constexpr slot_type inner_slots_min = inner_slots_max / 2;
 
-    struct node_type {
-        slot_type level{};
-        slot_type slot_count{};
-        [[nodiscard]] bool is_leafnode() const noexcept { return level == 0; }
-        [[nodiscard]] bool is_full() const noexcept { return slot_count == leaf_slots_max; }
-        [[nodiscard]] bool is_few() const noexcept { return slot_count <= leaf_slots_min; }
-        [[nodiscard]] bool is_underflow() const noexcept { return slot_count < leaf_slots_min; }
-    };
-
-    struct inner_node_type : public node_type {
-        using alloc_type = typename std::allocator_traits<allocator_type>::template rebind_alloc<inner_node_type>;
-
-        std::array<key_type, inner_slots_max> keys;
-        std::array<node_type*, inner_slots_max + 1> childs;
-
-        [[nodiscard]] const key_type& key(slot_type slot) const noexcept { return keys[slot]; }
-    };
-
-    struct leaf_node_type : public node_type {
-        using alloc_type = typename std::allocator_traits<allocator_type>::template rebind_alloc<leaf_node_type>;
-
-        leaf_node_type* previous_leaf{};
-        leaf_node_type* next_leaf{};
-
-        std::array<value_type, leaf_slots_max> data;
-
-        [[nodiscard]] const key_type& key(slot_type slot) const { return key_extractor_type{}(data[slot]); }
-    };
+    struct node_type;
+    struct inner_node_type;
+    struct leaf_node_type;
 
     template <typename Node, typename... Args>
     static Node* allocate_from_allocator(const allocator_type& allocator, Args&&... args) {
@@ -463,4 +438,36 @@ private:
 
     leaf_node_type_* current_leaf{};
     slot_type current_slot{};
+};
+
+template <typename Key, typename Value, typename KeyExtractor, typename Compare, typename Traits, typename Allocator>
+struct btree<Key, Value, KeyExtractor, Compare, Traits, Allocator>::node_type {
+    slot_type level{};
+    slot_type slot_count{};
+    [[nodiscard]] bool is_leafnode() const noexcept { return level == 0; }
+    [[nodiscard]] bool is_full() const noexcept { return slot_count == leaf_slots_max; }
+    [[nodiscard]] bool is_few() const noexcept { return slot_count <= leaf_slots_min; }
+    [[nodiscard]] bool is_underflow() const noexcept { return slot_count < leaf_slots_min; }
+};
+
+template <typename Key, typename Value, typename KeyExtractor, typename Compare, typename Traits, typename Allocator>
+struct btree<Key, Value, KeyExtractor, Compare, Traits, Allocator>::inner_node_type : public node_type {
+    using alloc_type = typename std::allocator_traits<allocator_type>::template rebind_alloc<inner_node_type>;
+
+    std::array<key_type, inner_slots_max> keys;
+    std::array<node_type*, inner_slots_max + 1> childs;
+
+    [[nodiscard]] const key_type& key(slot_type slot) const noexcept { return keys[slot]; }
+};
+
+template <typename Key, typename Value, typename KeyExtractor, typename Compare, typename Traits, typename Allocator>
+struct btree<Key, Value, KeyExtractor, Compare, Traits, Allocator>::leaf_node_type : public node_type {
+    using alloc_type = typename std::allocator_traits<allocator_type>::template rebind_alloc<leaf_node_type>;
+
+    leaf_node_type* previous_leaf{};
+    leaf_node_type* next_leaf{};
+
+    std::array<value_type, leaf_slots_max> data;
+
+    [[nodiscard]] const key_type& key(slot_type slot) const { return key_extractor_type{}(data[slot]); }
 };
