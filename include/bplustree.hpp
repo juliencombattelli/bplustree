@@ -34,6 +34,7 @@ struct btree_default_traits {
      */
     static const int inner_slots = std::max<int>(8, (240 - sizeof(void*)) / (sizeof(Key) + sizeof(void*)));
     static const bool debug = false;
+    static const bool with_stats = false;
 };
 
 /**
@@ -41,8 +42,10 @@ struct btree_default_traits {
  * @note Useful to build a std::set-like structure on top of `bplustree`.
  */
 struct btree_key_extractor_self {
-    template<typename T>
-    [[nodiscard]] const auto& operator()(const T& value) { return value; }
+    template <typename T>
+    [[nodiscard]] const auto& operator()(const T& value) {
+        return value;
+    }
 };
 
 /**
@@ -50,8 +53,10 @@ struct btree_key_extractor_self {
  * @note Useful to build a std::map-like structure on top of `bplustree`.
  */
 struct btree_key_extractor_pair {
-    template<typename T>
-    [[nodiscard]] const auto& operator()(const T& value) { return value.first; }
+    template <typename T>
+    [[nodiscard]] const auto& operator()(const T& value) {
+        return value.first;
+    }
 };
 
 namespace detail {
@@ -124,8 +129,6 @@ private:
     template <typename V>
     class iterator_base;
 
-    struct tree_stats;
-
 public:
     using btree_type = btree<Key, Value, KeyExtractor, Compare, Traits, Allocator>;
     using key_type = Key;
@@ -141,6 +144,8 @@ public:
     using const_iterator = iterator_base<const Value>;
     using reverse_iterator = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+
+    struct stats_type;
 
     explicit btree(const allocator_type& alloc = allocator_type{}) : allocator(alloc) {}
 
@@ -200,7 +205,7 @@ public:
             root = nullptr;
             head_leaf = tail_leaf = nullptr;
 
-            stats = tree_stats{};
+            stats = stats_type{};
         }
     }
 
@@ -210,7 +215,7 @@ public:
 
     [[nodiscard]] bool empty() const noexcept { return size() == 0; }
 
-    [[nodiscard]] const tree_stats& get_stats() const noexcept { return stats; }
+    [[nodiscard]] const stats_type& get_stats() const noexcept { return stats; }
 
     template <typename Iterator>
     [[nodiscard]] static Iterator lower_bound_impl(btree_type& self, const key_type& key) {
@@ -269,19 +274,6 @@ private:
         std::array<value_type, leaf_slots_max> data;
 
         [[nodiscard]] const key_type& key(slot_type slot) const { return key_extractor_type{}(data[slot]); }
-    };
-
-    struct tree_stats {
-        size_type size{};
-        size_type leaves{};
-        size_type inner_nodes{};
-
-        [[nodiscard]] size_type nodes() const noexcept { return inner_nodes + leaves; }
-
-        template <typename T = float>
-        [[nodiscard]] T average_fill_leaves() const noexcept {
-            return static_cast<T>(size) / (leaves * leaf_slots_max);
-        }
     };
 
     template <typename Node, typename... Args>
@@ -368,92 +360,108 @@ private:
     node_type* root{};
     leaf_node_type* head_leaf{};
     leaf_node_type* tail_leaf{};
-    tree_stats stats;
+    stats_type stats;
     // key_extractor_type key_extractor; // Cannot be stored for now since it is used inside node types
     key_compare_type key_compare;
     allocator_type allocator;
+};
 
-    template <typename V>
-    class iterator_base {
-    public:
-        using key_type = Key;
-        using value_type = std::decay_t<V>;
-        using reference = value_type&;
-        using pointer = value_type*;
-        using iterator_category = std::bidirectional_iterator_tag;
-        using difference_type = ptrdiff_t;
+template <typename Key, typename Value, typename KeyExtractor, typename Compare, typename Traits, typename Allocator>
+class btree<Key, Value, KeyExtractor, Compare, Traits, Allocator>::stats_type {
+    // TODO use size_type
+    size_t size{};
+    size_t leaves{};
+    size_t inner_nodes{};
 
-        using leaf_node_type_ = std::conditional_t<std::is_const_v<value_type>, const leaf_node_type, leaf_node_type>;
+    [[nodiscard]] size_t nodes() const noexcept { return inner_nodes + leaves; }
 
-        iterator_base() noexcept = default;
-        iterator_base(leaf_node_type_* l, slot_type s) noexcept : current_leaf{l}, current_slot{s} {}
+    template <typename T = float>
+    [[nodiscard]] T average_fill_leaves() const noexcept {
+        return static_cast<T>(size) / (leaves * leaf_slots_max);
+    }
+};
 
-        [[nodiscard]] reference operator*() const noexcept { return current_leaf->data[current_slot]; }
-        [[nodiscard]] pointer operator->() const noexcept { return &current_leaf->data[current_slot]; }
+template <typename Key, typename Value, typename KeyExtractor, typename Compare, typename Traits, typename Allocator>
+template <typename V>
+class btree<Key, Value, KeyExtractor, Compare, Traits, Allocator>::iterator_base {
+public:
+    using key_type = Key;
+    using value_type = std::decay_t<V>;
+    using reference = value_type&;
+    using pointer = value_type*;
+    using iterator_category = std::bidirectional_iterator_tag;
+    using difference_type = ptrdiff_t;
 
-        [[nodiscard]] const key_type& key() const noexcept { return current_leaf->key(current_slot); }
+    using leaf_node_type_ = std::conditional_t<std::is_const_v<value_type>, const leaf_node_type, leaf_node_type>;
 
-        iterator_base& operator++() noexcept {
-            next();
-            return *this;
+    iterator_base() noexcept = default;
+    iterator_base(leaf_node_type_* l, slot_type s) noexcept : current_leaf{l}, current_slot{s} {}
+
+    [[nodiscard]] reference operator*() const noexcept { return current_leaf->data[current_slot]; }
+    [[nodiscard]] pointer operator->() const noexcept { return &current_leaf->data[current_slot]; }
+
+    [[nodiscard]] const key_type& key() const noexcept { return current_leaf->key(current_slot); }
+
+    iterator_base& operator++() noexcept {
+        next();
+        return *this;
+    }
+
+    [[nodiscard]] iterator_base operator++(int) noexcept {
+        iterator_base tmp = *this;
+        next();
+        return tmp;
+    }
+
+    iterator_base& operator--() noexcept {
+        previous();
+        return *this;
+    }
+
+    [[nodiscard]] iterator_base operator--(int) noexcept {
+        iterator_base tmp = *this;
+        previous();
+        return tmp;
+    }
+
+    [[nodiscard]] bool operator==(const iterator_base& x) const noexcept {
+        return x.current_leaf == current_leaf && x.current_slot == current_slot;
+    }
+    [[nodiscard]] bool operator!=(const iterator_base& x) const noexcept {
+        return x.current_leaf != current_leaf || x.current_slot != current_slot;
+    }
+
+private:
+    void next() noexcept {
+        BPLUSTREE_ASSERT(current_leaf != nullptr);
+        if (current_slot + 1u < current_leaf->slot_count) {
+            // There is still data in current node, switching to next slot
+            ++current_slot;
+        } else if (current_leaf->next_leaf != nullptr) {
+            // No data on current node, switching to the next one
+            current_leaf = current_leaf->next_leaf;
+            current_slot = 0;
+        } else {
+            // No data and no node left, setting current slot to end()
+            current_slot = current_leaf->slot_count;
         }
+    }
 
-        [[nodiscard]] iterator_base operator++(int) noexcept {
-            iterator_base tmp = *this;
-            next();
-            return tmp;
+    void previous() noexcept {
+        BPLUSTREE_ASSERT(current_leaf != nullptr);
+        if (current_slot > 0) {
+            // There is still data in current node, switching to previous slot
+            --current_slot;
+        } else if (current_leaf->previous_leaf != nullptr) {
+            // No data on current node, switching to the previous one
+            current_leaf = current_leaf->previous_leaf;
+            current_slot = current_leaf->slot_count - 1;
+        } else {
+            // No node left, setting current slot to begin()
+            current_slot = 0;
         }
+    }
 
-        iterator_base& operator--() noexcept {
-            previous();
-            return *this;
-        }
-
-        [[nodiscard]] iterator_base operator--(int) noexcept {
-            iterator_base tmp = *this;
-            previous();
-            return tmp;
-        }
-
-        [[nodiscard]] bool operator==(const iterator_base& x) const noexcept {
-            return x.current_leaf == current_leaf && x.current_slot == current_slot;
-        }
-        [[nodiscard]] bool operator!=(const iterator_base& x) const noexcept {
-            return x.current_leaf != current_leaf || x.current_slot != current_slot;
-        }
-
-    BPLUSTREE_PRIVATE_TESTABLE:
-        void next() noexcept {
-            BPLUSTREE_ASSERT(current_leaf != nullptr);
-            if (current_slot + 1u < current_leaf->slot_count) {
-                // There is still data in current node, switching to next slot
-                ++current_slot;
-            } else if (current_leaf->next_leaf != nullptr) {
-                // No data on current node, switching to the next one
-                current_leaf = current_leaf->next_leaf;
-                current_slot = 0;
-            } else {
-                // No data and no node left, setting current slot to end()
-                current_slot = current_leaf->slot_count;
-            }
-        }
-
-        void previous() noexcept {
-            BPLUSTREE_ASSERT(current_leaf != nullptr);
-            if (current_slot > 0) {
-                // There is still data in current node, switching to previous slot
-                --current_slot;
-            } else if (current_leaf->previous_leaf != nullptr) {
-                // No data on current node, switching to the previous one
-                current_leaf = current_leaf->previous_leaf;
-                current_slot = current_leaf->slot_count - 1;
-            } else {
-                // No node left, setting current slot to begin()
-                current_slot = 0;
-            }
-        }
-
-        leaf_node_type_* current_leaf{};
-        slot_type current_slot{};
-    };
+    leaf_node_type_* current_leaf{};
+    slot_type current_slot{};
 };
