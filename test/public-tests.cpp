@@ -10,3 +10,9 @@ TEST(lower_bound, empty) {
     auto it = tree.lower_bound(3);
     ASSERT_EQ(it, tree.end());
 }
+
+TEST(upper_bound, empty) {
+    set<int> tree;
+    auto it = tree.upper_bound(3);
+    ASSERT_EQ(it, tree.end());
+}
