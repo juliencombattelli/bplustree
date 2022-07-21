@@ -222,6 +222,11 @@ public:
         return lower_bound_impl<const_iterator>(key);
     }
 
+    [[nodiscard]] iterator upper_bound(const key_type& key) { return upper_bound_impl<iterator>(key); }
+    [[nodiscard]] const_iterator upper_bound(const key_type& key) const {
+        return upper_bound_impl<const_iterator>(key);
+    }
+
 private:
     using level_type = size_type;
     using slot_type = size_type;
@@ -291,6 +296,7 @@ private:
      *
      * @todo Perform a linear search for small number of key slots. Threshold between linear and binary search should be
      * configurable by the user.
+     * @todo Move into Node?
      */
     template <typename Node, typename Comparator>
     [[nodiscard]] slot_type find_slot(const Node& node, const Comparator& comp, const key_type& key) const noexcept {
@@ -306,30 +312,34 @@ private:
         return lower;
     }
 
-    template <typename Node>
-    [[nodiscard]] slot_type find_lower_bound_slot(const Node& node, const key_type& key) const noexcept {
-        return find_slot(node, detail::greater_than_or_equal_to, key);
-    }
-
-    template <typename Node>
-    [[nodiscard]] slot_type find_upper_bound_slot(const Node& node, const key_type& key) const noexcept {
-        return find_slot(node, detail::greater_than, key);
-    }
-
-    template <typename Iterator>
-    [[nodiscard]] Iterator lower_bound_impl(const key_type& key) {
+    template <typename Iterator, typename F>
+    [[nodiscard]] Iterator find_node(F&& f) {
         node_type* node = root;
         if (!node) {
             return end();
         }
         while (!node->is_leafnode()) {
             const auto* inner = static_cast<const inner_node_type*>(node);
-            slot_type slot = find_lower_bound_slot(*inner, key);
+            slot_type slot = f(*inner);
             node = inner->childs[slot];
         }
         auto* leaf = static_cast<leaf_node_type*>(node);
-        slot_type slot = find_lower_bound_slot(*leaf, key);
+        slot_type slot = f(*leaf);
         return Iterator(leaf, slot);
+    }
+
+    template <typename Iterator>
+    [[nodiscard]] Iterator lower_bound_impl(const key_type& key) {
+        return find_node<Iterator>([&key, this](const auto& node) {
+            return find_slot(node, detail::greater_than_or_equal_to, key);
+        });
+    }
+
+    template <typename Iterator>
+    [[nodiscard]] Iterator upper_bound_impl(const key_type& key) {
+        return find_node<Iterator>([&key, this](const auto& node) {
+            return find_slot(node, detail::greater_than, key);
+        });
     }
 
     node_type* root{};
@@ -342,7 +352,7 @@ private:
 };
 
 template <typename Key, typename Value, typename KeyExtractor, typename Compare, typename Traits, typename Allocator>
-class btree<Key, Value, KeyExtractor, Compare, Traits, Allocator>::stats_type {
+struct btree<Key, Value, KeyExtractor, Compare, Traits, Allocator>::stats_type {
     size_type size{};
     size_type leaves{};
     size_type inner_nodes{};
