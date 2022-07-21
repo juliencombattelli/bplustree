@@ -217,25 +217,9 @@ public:
 
     [[nodiscard]] const stats_type& get_stats() const noexcept { return stats; }
 
-    template <typename Iterator>
-    [[nodiscard]] static Iterator lower_bound_impl(btree_type& self, const key_type& key) {
-        node_type* node = self.root;
-        if (!node) {
-            return self.end();
-        }
-        while (!node->is_leafnode()) {
-            const auto* inner = static_cast<const inner_node_type*>(node);
-            slot_type slot = self.find_lower_bound_slot(*inner, key);
-            node = inner->childs[slot];
-        }
-        auto* leaf = static_cast<leaf_node_type*>(node);
-        slot_type slot = self.find_lower_bound_slot(*leaf, key);
-        return Iterator(leaf, slot);
-    }
-
-    [[nodiscard]] iterator lower_bound(const key_type& key) { return lower_bound_impl<iterator>(*this, key); }
+    [[nodiscard]] iterator lower_bound(const key_type& key) { return lower_bound_impl<iterator>(key); }
     [[nodiscard]] const_iterator lower_bound(const key_type& key) const {
-        return lower_bound_impl<const_iterator>(*this, key);
+        return lower_bound_impl<const_iterator>(key);
     }
 
 private:
@@ -355,6 +339,22 @@ private:
     template <typename Node>
     [[nodiscard]] slot_type find_upper_bound_slot(const Node& node, const key_type& key) const noexcept {
         return find_slot(node, detail::greater_than, key);
+    }
+
+    template <typename Iterator>
+    [[nodiscard]] Iterator lower_bound_impl(const key_type& key) {
+        node_type* node = root;
+        if (!node) {
+            return end();
+        }
+        while (!node->is_leafnode()) {
+            const auto* inner = static_cast<const inner_node_type*>(node);
+            slot_type slot = find_lower_bound_slot(*inner, key);
+            node = inner->childs[slot];
+        }
+        auto* leaf = static_cast<leaf_node_type*>(node);
+        slot_type slot = find_lower_bound_slot(*leaf, key);
+        return Iterator(leaf, slot);
     }
 
     node_type* root{};
