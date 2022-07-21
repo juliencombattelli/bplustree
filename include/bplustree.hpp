@@ -242,10 +242,10 @@ private:
     using level_type = size_type;
     using slot_type = size_type;
 
-    static const slot_type leaf_slots_max = traits_type::leaf_slots;
-    static const slot_type inner_slots_max = traits_type::inner_slots;
-    static const slot_type leaf_slots_min = leaf_slots_max / 2;
-    static const slot_type inner_slots_min = inner_slots_max / 2;
+    static constexpr slot_type leaf_slots_max = traits_type::leaf_slots;
+    static constexpr slot_type inner_slots_max = traits_type::inner_slots;
+    static constexpr slot_type leaf_slots_min = leaf_slots_max / 2;
+    static constexpr slot_type inner_slots_min = inner_slots_max / 2;
 
     struct node_type {
         slot_type level{};
