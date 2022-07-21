@@ -312,8 +312,11 @@ private:
         return lower;
     }
 
+    /**
+     * Traverse the tree from root to leaves and find the leaf node slot according to the visitor function `f`.
+     */
     template <typename Iterator, typename F>
-    [[nodiscard]] Iterator find_node(F&& f) {
+    [[nodiscard]] Iterator find_slot(F&& f) {
         node_type* node = root;
         if (!node) {
             return end();
@@ -330,14 +333,14 @@ private:
 
     template <typename Iterator>
     [[nodiscard]] Iterator lower_bound_impl(const key_type& key) {
-        return find_node<Iterator>([&key, this](const auto& node) {
+        return find_slot<Iterator>([&key, this](const auto& node) {
             return find_slot(node, detail::greater_than_or_equal_to, key);
         });
     }
 
     template <typename Iterator>
     [[nodiscard]] Iterator upper_bound_impl(const key_type& key) {
-        return find_node<Iterator>([&key, this](const auto& node) {
+        return find_slot<Iterator>([&key, this](const auto& node) {
             return find_slot(node, detail::greater_than, key);
         });
     }
