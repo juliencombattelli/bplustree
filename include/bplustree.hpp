@@ -368,12 +368,11 @@ private:
 
 template <typename Key, typename Value, typename KeyExtractor, typename Compare, typename Traits, typename Allocator>
 class btree<Key, Value, KeyExtractor, Compare, Traits, Allocator>::stats_type {
-    // TODO use size_type
-    size_t size{};
-    size_t leaves{};
-    size_t inner_nodes{};
+    size_type size{};
+    size_type leaves{};
+    size_type inner_nodes{};
 
-    [[nodiscard]] size_t nodes() const noexcept { return inner_nodes + leaves; }
+    [[nodiscard]] size_type nodes() const noexcept { return inner_nodes + leaves; }
 
     template <typename T = float>
     [[nodiscard]] T average_fill_leaves() const noexcept {
