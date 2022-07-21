@@ -21,12 +21,6 @@
     } while (0)
 #endif
 
-#ifdef BPLUSTREE_TESTING_PRIVATE
-#define BPLUSTREE_PRIVATE_TESTABLE public
-#else
-#define BPLUSTREE_PRIVATE_TESTABLE private
-#endif
-
 template <typename Key, typename Value>
 struct btree_default_traits {
     /**
@@ -126,14 +120,14 @@ template <typename Key,
           typename Traits = btree_default_traits<Key, Value>,
           typename Allocator = std::allocator<Value>>
 class btree {
-BPLUSTREE_PRIVATE_TESTABLE:
-    using btree_type = btree<Key, Value, KeyExtractor, Compare, Traits, Allocator>;
+private:
     template <typename V>
     class iterator_base;
 
     struct tree_stats;
 
 public:
+    using btree_type = btree<Key, Value, KeyExtractor, Compare, Traits, Allocator>;
     using key_type = Key;
     using value_type = Value;
     using key_extractor_type = KeyExtractor;
@@ -239,7 +233,7 @@ public:
         return lower_bound_impl<const_iterator>(*this, key);
     }
 
-BPLUSTREE_PRIVATE_TESTABLE:
+private:
     using level_type = size_type;
     using slot_type = size_type;
 
