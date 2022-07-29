@@ -116,6 +116,22 @@ static constexpr struct {
     }
 } not_equal_to;
 
+/**
+ * Converts an enumeration to its underlying type. Backported from C++23.
+ *
+ * @see https://en.cppreference.com/w/cpp/utility/to_underlying
+ */
+template <class Enum>
+constexpr std::underlying_type_t<Enum> to_underlying(Enum e) noexcept {
+    return static_cast<std::underlying_type_t<Enum>>(e);
+}
+
+/**
+ * Enumeration denoting the constness of a btree iterator.
+ * Acts like a boolean.
+ */
+enum class is_const_t : bool { no = false, yes = true };
+
 }  // namespace detail
 
 template <typename Key,
@@ -126,7 +142,7 @@ template <typename Key,
           typename Allocator = std::allocator<Value>>
 class btree {
 private:
-    template <typename V>
+    template <detail::is_const_t is_const>
     class iterator_base;
 
 public:
@@ -140,11 +156,23 @@ public:
     using allocator_type = Allocator;
     using size_type = size_t;
 
-    using iterator = iterator_base<Value>;
-    using const_iterator = iterator_base<const Value>;
+    using iterator = iterator_base<detail::is_const_t::no>;
+    using const_iterator = iterator_base<detail::is_const_t::yes>;
     using reverse_iterator = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
+private:
+    /**
+     * Aliases on the appropriate iterator type depending on the constness of the tree type `Self`
+     */
+    template <typename Self>
+    using select_iterator_type =
+        std::conditional_t<std::is_const_v<std::remove_reference_t<Self>>, const_iterator, iterator>;
+    template <typename Self>
+    using select_reverse_iterator_type =
+        std::conditional_t<std::is_const_v<std::remove_reference_t<Self>>, const_reverse_iterator, reverse_iterator>;
+
+public:
     struct stats_type;
 
     explicit btree(const allocator_type& alloc = allocator_type{}) : allocator(alloc) {}
@@ -217,15 +245,11 @@ public:
 
     [[nodiscard]] const stats_type& get_stats() const noexcept { return stats; }
 
-    [[nodiscard]] iterator lower_bound(const key_type& key) { return lower_bound_impl<iterator>(key); }
-    [[nodiscard]] const_iterator lower_bound(const key_type& key) const {
-        return lower_bound_impl<const_iterator>(key);
-    }
+    [[nodiscard]] iterator lower_bound(const key_type& key) { return lower_bound_impl(*this, key); }
+    [[nodiscard]] const_iterator lower_bound(const key_type& key) const { return lower_bound_impl(*this, key); }
 
-    [[nodiscard]] iterator upper_bound(const key_type& key) { return upper_bound_impl<iterator>(key); }
-    [[nodiscard]] const_iterator upper_bound(const key_type& key) const {
-        return upper_bound_impl<const_iterator>(key);
-    }
+    [[nodiscard]] iterator upper_bound(const key_type& key) { return upper_bound_impl(*this, key); }
+    [[nodiscard]] const_iterator upper_bound(const key_type& key) const { return upper_bound_impl(*this, key); }
 
 private:
     using level_type = size_type;
@@ -296,14 +320,16 @@ private:
      *
      * @todo Perform a linear search for small number of key slots. Threshold between linear and binary search should be
      * configurable by the user.
-     * @todo Move into Node?
      */
-    template <typename Node, typename Comparator>
-    [[nodiscard]] slot_type find_slot(const Node& node, const Comparator& comp, const key_type& key) const noexcept {
+    template <typename Node, typename Comparator, typename Self>
+    [[nodiscard]] static slot_type find_slot_in_node(Self&& self,
+                                                     const Node& node,
+                                                     const Comparator& comp,
+                                                     const key_type& key) noexcept {
         slot_type lower = 0, upper = node.slot_count;
         while (lower < upper) {
             const slot_type middle = (lower + upper) / 2;
-            if (comp(key_compare, node.key(middle), key)) {
+            if (comp(self.key_compare, node.key(middle), key)) {
                 upper = middle;
             } else {
                 lower = middle + 1;
@@ -313,36 +339,33 @@ private:
     }
 
     /**
-     * Traverse the tree from root to leaves and find the leaf node slot according to the visitor function `f`.
+     * Traverse the tree from root to leaves and find the first leaf node slot satisfying the comparison `comp` with
+     * `key`.
      */
-    template <typename Iterator, typename F>
-    [[nodiscard]] Iterator find_slot(F&& f) {
-        node_type* node = root;
+    template <typename Comparator, typename Self>
+    [[nodiscard]] static auto find_leaf_slot(Self&& self, const Comparator& comp, const key_type& key) {
+        node_type* node = self.root;
         if (!node) {
-            return end();
+            return self.end();
         }
         while (!node->is_leafnode()) {
             const auto* inner = static_cast<const inner_node_type*>(node);
-            slot_type slot = f(*inner);
+            slot_type slot = find_slot_in_node(self, *inner, comp, key);
             node = inner->childs[slot];
         }
         auto* leaf = static_cast<leaf_node_type*>(node);
-        slot_type slot = f(*leaf);
-        return Iterator(leaf, slot);
+        slot_type slot = find_slot_in_node(self, *leaf, comp, key);
+        return select_iterator_type<Self>(leaf, slot);
     }
 
-    template <typename Iterator>
-    [[nodiscard]] Iterator lower_bound_impl(const key_type& key) {
-        return find_slot<Iterator>([&key, this](const auto& node) {
-            return find_slot(node, detail::greater_than_or_equal_to, key);
-        });
+    template <typename Self>
+    [[nodiscard]] static auto lower_bound_impl(Self&& self, const key_type& key) {
+        return find_leaf_slot(self, detail::greater_than_or_equal_to, key);
     }
 
-    template <typename Iterator>
-    [[nodiscard]] Iterator upper_bound_impl(const key_type& key) {
-        return find_slot<Iterator>([&key, this](const auto& node) {
-            return find_slot(node, detail::greater_than, key);
-        });
+    template <typename Self>
+    [[nodiscard]] static auto upper_bound_impl(Self&& self, const key_type& key) {
+        return find_leaf_slot(self, detail::greater_than, key);
     }
 
     node_type* root{};
@@ -369,17 +392,17 @@ struct btree<Key, Value, KeyExtractor, Compare, Traits, Allocator>::stats_type {
 };
 
 template <typename Key, typename Value, typename KeyExtractor, typename Compare, typename Traits, typename Allocator>
-template <typename V>
+template <detail::is_const_t is_const>
 class btree<Key, Value, KeyExtractor, Compare, Traits, Allocator>::iterator_base {
 public:
     using key_type = Key;
-    using value_type = std::decay_t<V>;
+    using value_type = Value;
     using reference = value_type&;
     using pointer = value_type*;
     using iterator_category = std::bidirectional_iterator_tag;
     using difference_type = ptrdiff_t;
 
-    using leaf_node_type_ = std::conditional_t<std::is_const_v<value_type>, const leaf_node_type, leaf_node_type>;
+    using leaf_node_type_ = std::conditional_t<detail::to_underlying(is_const), const leaf_node_type, leaf_node_type>;
 
     iterator_base() noexcept = default;
     iterator_base(leaf_node_type_* l, slot_type s) noexcept : current_leaf{l}, current_slot{s} {}
