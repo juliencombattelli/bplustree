@@ -15,7 +15,7 @@ using set = btree<T, T, btree_key_extractor_self>;
 
 //     node.keys = {0, 1, 2, 3, 3, 3, 4, 5, 6};
 //     node.slot_count = 9;
-//     auto slot = tree.find_lower_bound_slot(node, 3);
+//     auto slot = set<int>::find_slot_in_node(tree, node, detail::greater_than_or_equal_to, 3);
 //     ASSERT_EQ(slot, 3);
 // }
 
@@ -25,7 +25,7 @@ using set = btree<T, T, btree_key_extractor_self>;
 
 //     node.keys = {0, 1, 2, 3, 3, 3, 4, 5, 6};
 //     node.slot_count = 9;
-//     auto slot = tree.find_upper_bound_slot(node, 3);
+//     auto slot = set<int>::find_slot_in_node(tree, node, detail::greater_than, 3);
 //     ASSERT_EQ(slot, 6);
 // }
 
@@ -33,9 +33,10 @@ using set = btree<T, T, btree_key_extractor_self>;
 //     set<int>::leaf_node_type node;
 //     set<int> tree;
 
-//     node.data = {0, 1, 2, 3, 3, 3, 4, 5, 6};
+//     node.data = {10, 11, 12, 13, 13, 13, 14, 15, 16};
 //     node.slot_count = 9;
-//     auto slot = tree.find_lower_bound_slot(node, 3);
+//     auto slot = set<int>::find_slot_in_node(tree, node, detail::greater_than_or_equal_to, 3);
+//     std::cout << "slot found: " << slot << "\n";
 //     ASSERT_EQ(slot, 3);
 // }
 
@@ -45,6 +46,6 @@ using set = btree<T, T, btree_key_extractor_self>;
 
 //     node.data = {0, 1, 2, 3, 3, 3, 4, 5, 6};
 //     node.slot_count = 9;
-//     auto slot = tree.find_upper_bound_slot(node, 3);
+//     auto slot = set<int>::find_slot_in_node(tree, node, detail::greater_than, 3);
 //     ASSERT_EQ(slot, 6);
 // }
