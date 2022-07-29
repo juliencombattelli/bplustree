@@ -198,7 +198,7 @@ public:
 
     [[nodiscard]] iterator begin() noexcept { return iterator(head_leaf, 0); }
     [[nodiscard]] const_iterator begin() const noexcept { return const_iterator(head_leaf, 0); }
-    [[nodiscard]] const_iterator cbegin() const noexcept { const_iterator(head_leaf, 0); }
+    [[nodiscard]] const_iterator cbegin() const noexcept { return const_iterator(head_leaf, 0); }
     [[nodiscard]] reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
     [[nodiscard]] const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator(end()); }
     [[nodiscard]] const_reverse_iterator crbegin() const noexcept { return const_reverse_iterator(end()); }
@@ -395,6 +395,9 @@ template <typename Key, typename Value, typename KeyExtractor, typename Compare,
 template <detail::is_const_t is_const>
 class btree<Key, Value, KeyExtractor, Compare, Traits, Allocator>::iterator_base {
 public:
+    // const iterators are allowed to access non-const iterators internals
+    friend class iterator_base<detail::is_const_t::yes>;
+
     using key_type = Key;
     using value_type = Value;
     using reference = value_type&;
@@ -405,7 +408,14 @@ public:
     using leaf_node_type_ = std::conditional_t<detail::to_underlying(is_const), const leaf_node_type, leaf_node_type>;
 
     iterator_base() noexcept = default;
+
     iterator_base(leaf_node_type_* l, slot_type s) noexcept : current_leaf{l}, current_slot{s} {}
+
+    iterator_base(const iterator_base&) = default;
+
+    // Convert an non-const iterator into a const iterator
+    iterator_base(const iterator_base<detail::is_const_t::no>& other) requires(is_const == detail::is_const_t::yes)
+        : iterator_base(other.current_leaf, other.current_slot) {}
 
     [[nodiscard]] reference operator*() const noexcept { return current_leaf->data[current_slot]; }
     [[nodiscard]] pointer operator->() const noexcept { return &current_leaf->data[current_slot]; }
