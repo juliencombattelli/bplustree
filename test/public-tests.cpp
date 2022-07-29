@@ -43,8 +43,6 @@ TEST(upper_bound_const, empty) {
 // Check iterator/const_iterator conversions
 static_assert(std::is_convertible_v<set<int>::iterator, set<int>::const_iterator>);
 static_assert(!std::is_convertible_v<set<int>::const_iterator, set<int>::iterator>);
-static_assert(std::is_convertible_v<set<int>::reverse_iterator, set<int>::const_reverse_iterator>);
-static_assert(!std::is_convertible_v<set<int>::const_reverse_iterator, set<int>::reverse_iterator>);
 
 TEST(iterator, non_const_to_const_conversion_begin) {
     set<int> tree;
