@@ -13,8 +13,8 @@ jobs:
           - os: ubuntu-latest
             name: Ubuntu GCC
             artifact: ubuntu-gcc
-            compiler-c: gcc
-            compiler-cxx: g++
+            compiler-c: gcc-10
+            compiler-cxx: g++-10
           - os: ubuntu-latest
             name: Ubuntu Clang
             artifact: ubuntu-clang
