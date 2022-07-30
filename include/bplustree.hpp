@@ -400,8 +400,8 @@ public:
 
     using key_type = Key;
     using value_type = Value;
-    using reference = value_type&;
-    using pointer = value_type*;
+    using reference = std::conditional_t<detail::to_underlying(is_const), const value_type&, value_type&>;
+    using pointer = std::conditional_t<detail::to_underlying(is_const), const value_type*, value_type*>;
     using iterator_category = std::bidirectional_iterator_tag;
     using difference_type = ptrdiff_t;
 
